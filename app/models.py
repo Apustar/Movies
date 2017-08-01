@@ -1,14 +1,6 @@
 # coding:utf8
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
-import pymysql
-
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:ssjusher123@127.0.0.1:3306/movie'
-app.config['SQLAlCHEMY_TRACK_MODIFICATIONS'] = True
-
-db = SQLAlchemy(app)
+from app import db
 
 
 class User(db.Model):
@@ -79,8 +71,8 @@ class Movie(db.Model):
     relase_time = db.Column(db.Date)  # 上映时间
     add_time = db.Column(db.DateTime, index=True, default=datetime.utcnow)  # 添加时间
     tag_id = db.Column(db.Integer, db.ForeignKey('tag.id'))
-    comment = db.relationship('Comment', backpref='movie')  # 评论外键关系关联
-    movie_collection = db.relationship('MovieCollection', backpref='movie')  # 收藏外键关系关联
+    comment = db.relationship('Comment', backref='movie')  # 评论外键关系关联
+    movie_collection = db.relationship('MovieCollection', backref='movie')  # 收藏外键关系关联
 
     def __repr__(self):
         return '<Movie {}>'.format(self.title)
@@ -175,6 +167,10 @@ class Admin(db.Model):
     def __repr__(self):
         return '<Admin {}>'.format(self.name)
 
+    def check_pwd(self, pwd):
+        from werkzeug.security import check_password_hash
+        return check_password_hash(self.pwd, pwd)
+
 
 class AdminLog(db.Model):
     """
@@ -203,8 +199,4 @@ class OperateLog(db.Model):
 
     def __repr__(self):
         return '<OperateLog {}>'.format(self.id)
-
-
-if __name__ == '__main__':
-    db.create_all()
 
