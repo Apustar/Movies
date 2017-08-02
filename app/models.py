@@ -8,6 +8,7 @@ class User(db.Model):
     会员
     """
     __tablename__ = 'user'
+    __table_args__ = {'extend_existing': True}
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True)
     pwd = db.Column(db.String(100))
@@ -30,6 +31,7 @@ class UserLog(db.Model):
     会员登陆日志
     """
     __tablename__ = 'userlog'
+    __table_args__ = {'extend_existing': True}
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     login_ip = db.Column(db.String(100))
@@ -44,6 +46,7 @@ class Tag(db.Model):
     电影标签
     """
     __tablename__ = 'tag'
+    __table_args__ = {'extend_existing': True}
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True)
     add_time = db.Column(db.DateTime, index=True, default=datetime.now)
@@ -58,6 +61,7 @@ class Movie(db.Model):
     电影
     """
     __tablename__ = 'movie'
+    __table_args__ = {'extend_existing': True}
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), unique=True)
     url = db.Column(db.String(255), unique=True)
@@ -83,6 +87,7 @@ class MoviePreview(db.Model):
     电影预告
     """
     __tablename__ = 'moviepreview'
+    __table_args__ = {'extend_existing': True}
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), unique=True)
     logo = db.Column(db.String(255), unique=True)
@@ -97,6 +102,7 @@ class Comment(db.Model):
     电影评论
     """
     __tablename__ = 'comment'
+    __table_args__ = {'extend_existing': True}
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text)
     movie_id = db.Column(db.Integer, db.ForeignKey('movie.id'))
@@ -112,6 +118,7 @@ class MovieCollection(db.Model):
     电影收藏
     """
     __tablename__ = 'moviecollection'
+    __table_args__ = {'extend_existing': True}
     id = db.Column(db.Integer, primary_key=True)
     movie_id = db.Column(db.Integer, db.ForeignKey('movie.id'))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -126,6 +133,7 @@ class Auth(db.Model):
     权限
     """
     __tablename__ = 'auth'
+    __table_args__ = {'extend_existing': True}
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True)
     url = db.Column(db.String(255), unique=True)
@@ -140,6 +148,7 @@ class Role(db.Model):
     角色
     """
     __tablename__ = 'role'
+    __table_args__ = {'extend_existing': True}
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True)
     auths = db.Column(db.String(600))
@@ -155,6 +164,7 @@ class Admin(db.Model):
     管理员
     """
     __tablename__ = 'admin'
+    __table_args__ = {'extend_existing': True}
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True)
     pwd = db.Column(db.String(100))
@@ -177,6 +187,7 @@ class AdminLog(db.Model):
     管理员登陆日志
     """
     __tablename__ = 'adminlog'
+    __table_args__ = {'extend_existing': True}
     id = db.Column(db.Integer, primary_key=True)
     admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'))
     ip = db.Column(db.String(100))
@@ -191,6 +202,7 @@ class OperateLog(db.Model):
     操作日志
     """
     __tablename__ = 'operatelog'
+    __table_args__ = {'extend_existing': True}
     id = db.Column(db.Integer, primary_key=True)
     admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'))
     ip = db.Column(db.String(100))
@@ -199,4 +211,3 @@ class OperateLog(db.Model):
 
     def __repr__(self):
         return '<OperateLog {}>'.format(self.id)
-
