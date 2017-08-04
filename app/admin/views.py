@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 
 from app import db, app
 from app.models import Admin, Tag, Movie, MoviePreview, User, Comment, MovieCollection
-from .forms import LoginForm, TagForm, MovieForm, MoviePreviewForm
+from .forms import LoginForm, TagForm, MovieForm, MoviePreviewForm, PWDResetForm
 from . import admin
 import os, uuid, datetime, stat
 
@@ -51,7 +51,7 @@ def login():
         admin = Admin.query.filter_by(name=data['account']).first()
         if not admin.check_pwd(data['pwd']):
             # 错误消息闪现
-            flash('密码错误')
+            flash('密码错误', 'error')
             return redirect(url_for('admin.login'))
         # 检测通过，则保存会话
         session['admin'] = data['account']
@@ -69,13 +69,23 @@ def logout():
     return redirect(url_for('admin.login'))
 
 
-@admin.route('/pwd_reset/')
+@admin.route('/pwd_reset/', methods=['GET', 'POST'])
 @admin_login_req
 def pwd_reset():
     """
     后台密码重置
     """
-    return render_template('admin/pwd_reset.html')
+    form = PWDResetForm()
+    if form.validate_on_submit():
+        data = form.data
+        admin = Admin.query.filter_by(name=session['admin']).first()
+        from werkzeug.security import generate_password_hash
+        admin.pwd = generate_password_hash(data['new_pwd'])
+        db.session.add(admin)
+        db.session.commit()
+        flash('修改密码成功，请重新登陆', 'success')
+        redirect(url_for('admin.logout'))
+    return render_template('admin/pwd_reset.html', form=form)
 
 
 @admin.route('/tag/add/', methods=['GET', 'POST'])

@@ -209,6 +209,47 @@ class MoviePreviewForm(FlaskForm):
     )
 
 
+class PWDResetForm(FlaskForm):
+    """
+    修改密码表单
+    """
+    old_pwd = PasswordField(
+        label='旧密码',
+        validators=[
+            DataRequired('请输入旧密码')
+        ],
+        description='旧密码',
+        render_kw={
+            'class': 'form-control',
+            'placeholder': '请输入旧密码',
+        }
+    )
+    new_pwd = PasswordField(
+        label='新密码',
+        validators=[
+            DataRequired('请输入新密码')
+        ],
+        description='新密码',
+        render_kw={
+            'class': 'form-control',
+            'placeholder': '请输入新密码',
+        }
+    )
+    submit = SubmitField(
+        '确认',
+        render_kw={
+            'class': 'btn btn-primary',
+        }
+    )
+
+    def validate_old_pwd(self, field):
+        from flask import session
+        pwd = field.data
+        name = session['admin']
+        admin = Admin.query.filter_by(name=name).first()
+        if not admin.check_pwd(pwd):
+            raise ValidationError('旧密码错误')
+
 
 
 
