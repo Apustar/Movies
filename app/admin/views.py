@@ -161,7 +161,7 @@ def movie_add():
     添加电影
     """
     form = MovieForm()
-    form.tags = Tag.query.all()
+    form.tag_id.choices = [(v.id, v.name) for v in Tag.query.all()]
     if form.validate_on_submit():
 
         data = form.data
@@ -173,13 +173,15 @@ def movie_add():
             os.makedirs(app.config['UP_DIR'])
             os.chmod(app.config['UP_DIR'], stat.S_IRWXU)
 
-        # 生成文件名
+        # 生成唯一文件名
         url = change_filename(file_url)
         logo = change_filename(file_logo)
 
         # 保存文件
         form.url.data.save(app.config['UP_DIR'] + url)
         form.logo.data.save(app.config['UP_DIR'] + logo)
+
+        # 构造电影实体，存入数据库
         movie = Movie(
             title=data['title'],
             url=url,
@@ -200,13 +202,90 @@ def movie_add():
     return render_template('admin/movie_add.html', form=form)
 
 
-@admin.route('/movie/list/')
+@admin.route('/movie/list/<int:page>/', methods=['GET'])
 @admin_login_req
-def movie_list():
+def movie_list(page=None):
     """
     电影列表
     """
-    return render_template('admin/movie_list.html')
+    if page is None:
+        page = 1
+    data = Movie.query.join(Tag).filter(
+        Tag.id == Movie.tag_id
+    ).order_by(
+        Movie.add_time.desc()
+    ).paginate(page=page, per_page=2)
+    return render_template('admin/movie_list.html', data=data)
+
+
+@admin.route('/movie/edit/<int:id>/', methods=['GET', 'POST'])
+@admin_login_req
+def movie_edit(id=None):
+    """
+    编辑电影
+    """
+    form = MovieForm()
+    # 电影的logo和url已经存在，不用进行验证
+    form.url.validators = []
+    form.logo.validators = []
+    movie = Movie.query.get_or_404(int(id))
+
+    # 赋初值(因为部分字段在html里不容易获取值)
+    if request.method == 'GET':
+        form.info.data = movie.info
+        form.tag_id.data = movie.tag_id
+        form.star.data = movie.star
+
+    if form.validate_on_submit():
+        data = form.data
+
+        # 片名不能重复
+        movie_count = Movie.query.filter_by(title=data['title']).count()
+        if movie_count == 1 and movie.title != data['title']:
+            flash('片名不能重复', 'error')
+            return redirect(url_for('admin.movie_edit', id=id))
+
+        # 保存路径是否存在
+        if not os.path.exists(app.config['UP_DIR']):
+            os.makedirs(app.config['UP_DIR'])
+            os.chmod(app.config['UP_DIR'], stat.S_IRWXU)
+
+        # 生成唯一文件名并保存
+        if form.url.data.filename != '':
+            file_url = secure_filename(form.url.data.filename)
+            movie.url = change_filename(file_url)
+            form.url.data.save(app.config['UP_DIR'] + movie.url)
+        if form.logo.data.filename != '':
+            file_logo = secure_filename(form.logo.data.filename)
+            movie.logo = change_filename(file_logo)
+            form.logo.data.save(app.config['UP_DIR'] + movie.logo)
+
+        # 获取其他修改的信息并保存到数据库
+        movie.star = data['star']
+        movie.tag_id = data['tag_id']
+        movie.info = data['info']
+        movie.title = data['title']
+        movie.area = data['area']
+        movie.length = data['length']
+        movie.release_time = data['release_time']
+        db.session.add(movie)
+        db.session.commit()
+        flash('编辑电影成功', 'success')
+        return redirect(url_for('admin.movie_edit', id=id))
+    return render_template('admin/movie_edit.html', form=form, movie=movie)
+
+
+@admin.route('/movie/del/<int:id>/', methods=['GET'])
+@admin_login_req
+def movie_del(id=None):
+    """
+    删除电影
+    """
+    movie = Movie.query.get_or_404(int(id))
+    db.session.delete(movie)
+    db.session.commit()
+    flash('删除电影成功', 'success')
+    return redirect(url_for('admin.movie_list', page=1))
 
 
 @admin.route('/movie_pre/add/')

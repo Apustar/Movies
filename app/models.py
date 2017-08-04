@@ -73,7 +73,7 @@ class Movie(db.Model):
     area = db.Column(db.String(255))
     length = db.Column(db.String(100))
     release_time = db.Column(db.Date)  # 上映时间
-    add_time = db.Column(db.DateTime, index=True, default=datetime.utcnow)  # 添加时间
+    add_time = db.Column(db.DateTime, index=True, default=datetime.now)  # 添加时间
     tag_id = db.Column(db.Integer, db.ForeignKey('tag.id'))
     comment = db.relationship('Comment', backref='movie')  # 评论外键关系关联
     movie_collection = db.relationship('MovieCollection', backref='movie')  # 收藏外键关系关联
