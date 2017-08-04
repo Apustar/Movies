@@ -49,6 +49,9 @@ class LoginForm(FlaskForm):
 
 
 class TagForm(FlaskForm):
+    """
+    标签表单
+    """
     name = StringField(
         label='名称',
         validators=[
@@ -70,6 +73,9 @@ class TagForm(FlaskForm):
 
 
 class MovieForm(FlaskForm):
+    """
+    电影表单
+    """
     tags = Tag.query.all()
     title = StringField(
         label='片名',
@@ -169,6 +175,36 @@ class MovieForm(FlaskForm):
         '编辑',
         render_kw={
             'class': 'btn btn-primary'
+        }
+    )
+
+
+class MoviePreviewForm(FlaskForm):
+    """
+    电影预告表单
+    """
+    title = StringField(
+        label='预告标题',
+        validators=[
+            DataRequired('请输入预告标题')
+        ],
+        description='预告标题',
+        render_kw={
+            'class': 'form-control',
+            'placeholder': '请输入预告标题',
+        }
+    )
+    logo = FileField(
+        label='预告封面',
+        validators=[
+            DataRequired('请上传预告封面')
+        ],
+        description='预告封面',
+    )
+    submit = SubmitField(
+        '编辑',
+        render_kw={
+            'class': 'btn btn-primary',
         }
     )
 

@@ -4,8 +4,8 @@ from functools import wraps
 from werkzeug.utils import secure_filename
 
 from app import db, app
-from app.models import Admin, Tag, Movie
-from .forms import LoginForm, TagForm, MovieForm
+from app.models import Admin, Tag, Movie, MoviePreview
+from .forms import LoginForm, TagForm, MovieForm, MoviePreviewForm
 from . import admin
 import os, uuid, datetime, stat
 
@@ -288,22 +288,102 @@ def movie_del(id=None):
     return redirect(url_for('admin.movie_list', page=1))
 
 
-@admin.route('/movie_pre/add/')
+@admin.route('/movie_pre/add/', methods=['GET', 'POST'])
 @admin_login_req
 def movie_pre_add():
     """
     添加电影预告
     """
-    return render_template('admin/movie_pre_add.html')
+    form = MoviePreviewForm()
+    if form.validate_on_submit():
+        data = form.data
+
+        file_logo = secure_filename(form.logo.data.filename)
+
+        # 保存路径是否存在
+        if not os.path.exists(app.config['UP_DIR']):
+            os.makedirs(app.config['UP_DIR'])
+            os.chmod(app.config['UP_DIR'], stat.S_IRWXU)
+        # 生成唯一文件名
+        logo = change_filename(file_logo)
+        # 保存文件
+        form.logo.data.save(app.config['UP_DIR'] + logo)
+        movie_pre = MoviePreview(
+            title=data['title'],
+            logo=logo
+        )
+        db.session.add(movie_pre)
+        db.session.commit()
+        flash('添加预告成功', 'success')
+        return redirect(url_for('admin.movie_pre_add'))
+    return render_template('admin/movie_pre_add.html', form=form)
 
 
-@admin.route('/movie_pre/list/')
+@admin.route('/movie_pre/edit/<int:id>/', methods=['GET', 'POST'])
 @admin_login_req
-def movie_pre_list():
+def movie_pre_edit(id=None):
+    """
+    编辑电影预告
+    """
+    form = MoviePreviewForm()
+    # 电影的logo和url已经存在，不用进行验证
+    form.logo.validators = []
+    movie_pre = MoviePreview.query.get_or_404(int(id))
+
+    if form.validate_on_submit():
+        data = form.data
+
+        # 片名不能重复
+        movie_pre_count = MoviePreview.query.filter_by(title=data['title']).count()
+        if movie_pre_count == 1 and movie_pre.title != data['title']:
+            flash('预告片名不能重复', 'error')
+            return redirect(url_for('admin.movie_pre_edit', id=id))
+
+        # 保存路径是否存在
+        if not os.path.exists(app.config['UP_DIR']):
+            os.makedirs(app.config['UP_DIR'])
+            os.chmod(app.config['UP_DIR'], stat.S_IRWXU)
+
+        # 生成唯一文件名并保存
+        if form.logo.data.filename != '':
+            file_logo = secure_filename(form.logo.data.filename)
+            movie_pre.logo = change_filename(file_logo)
+            form.logo.data.save(app.config['UP_DIR'] + movie_pre.logo)
+
+        # 获取其他修改的信息并保存到数据库
+        movie_pre.title = data['title']
+        db.session.add(movie_pre)
+        db.session.commit()
+        flash('编辑电影预告成功', 'success')
+        return redirect(url_for('admin.movie_pre_edit', id=id))
+    return render_template('admin/movie_pre_edit.html', form=form, movie_pre=movie_pre)
+
+
+@admin.route('/movie_pre/list/<int:page>/', methods=['GET'])
+@admin_login_req
+def movie_pre_list(page=None):
     """
     电影预告列表
     """
-    return render_template('admin/movie_pre_list.html')
+    if page is None:
+        page = 1
+    data = MoviePreview.query.order_by(
+        MoviePreview.add_time.desc()
+    ).paginate(page=page, per_page=2)
+    return render_template('admin/movie_pre_list.html', data=data)
+
+
+@admin.route('/movie_pre/del/<int:id>/', methods=['GET'])
+@admin_login_req
+def movie_pre_del(id=None):
+    """
+    删除电影预告
+    """
+    movie_pre = MoviePreview.query.get_or_404(int(id))
+    db.session.delete(movie_pre)
+    db.session.commit()
+    flash('删除电影预告成功', 'success')
+    return redirect(url_for('admin.movie_pre_list', page=1))
 
 
 @admin.route('/user/list/')
