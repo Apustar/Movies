@@ -4,7 +4,7 @@ from functools import wraps
 from werkzeug.utils import secure_filename
 
 from app import db, app
-from app.models import Admin, Tag, Movie, MoviePreview
+from app.models import Admin, Tag, Movie, MoviePreview, User
 from .forms import LoginForm, TagForm, MovieForm, MoviePreviewForm
 from . import admin
 import os, uuid, datetime, stat
@@ -210,6 +210,7 @@ def movie_list(page=None):
     """
     if page is None:
         page = 1
+    # 使用join联合查询Tag和movie表
     data = Movie.query.join(Tag).filter(
         Tag.id == Movie.tag_id
     ).order_by(
@@ -386,22 +387,41 @@ def movie_pre_del(id=None):
     return redirect(url_for('admin.movie_pre_list', page=1))
 
 
-@admin.route('/user/list/')
+@admin.route('/user/list/<int:page>/', methods=['GET'])
 @admin_login_req
-def user_list():
+def user_list(page=None):
     """
     会员列表
     """
-    return render_template('admin/user_list.html')
+    if page is None:
+        page = 1
+    data = User.query.order_by(
+        User.add_time.desc()
+    ).paginate(page=page, per_page=2)
+    return render_template('admin/user_list.html', data=data)
 
 
-@admin.route('/user/detail/')
+@admin.route('/user/detail/<int:id>/', methods=['GET'])
 @admin_login_req
-def user_detail():
+def user_detail(id=None):
     """
     会员详细信息
     """
-    return render_template('admin/user_detail.html')
+    user = User.query.get_or_404(int(id))
+    return render_template('admin/user_detail.html', user=user)
+
+
+@admin.route('/user/del/<int:id>/', methods=['GET'])
+@admin_login_req
+def user_del(id=None):
+    """
+    删除会员
+    """
+    user = User.query.get_or_404(int(id))
+    db.session.delete(user)
+    db.session.commit()
+    flash('删除会员成功', 'success')
+    return redirect(url_for('admin.user_list', page=1))
 
 
 @admin.route('/comment/list/')
