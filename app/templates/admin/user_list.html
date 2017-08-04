@@ -66,12 +66,12 @@
                                         &nbsp;
                                         <a class="label label-warning">冻结</a>
                                         &nbsp;
-                                        <a class="label label-danger" href="{{ url_for('admin.user_del', id=item.id) }}>删除</a>
+                                        <a class="label label-danger" href="{{ url_for('admin.user_del', id=item.id) }}">删除</a>
                                     </td>
                                 </tr>
                                 {% endfor %}
                                 </tbody>
-                            </table>
+                               </table>
                         </div>
                         <div class="box-footer clearfix">
                             {{ pg.page(data, 'admin.user_list') }}

@@ -4,7 +4,7 @@ from functools import wraps
 from werkzeug.utils import secure_filename
 
 from app import db, app
-from app.models import Admin, Tag, Movie, MoviePreview, User
+from app.models import Admin, Tag, Movie, MoviePreview, User, Comment, MovieCollection
 from .forms import LoginForm, TagForm, MovieForm, MoviePreviewForm
 from . import admin
 import os, uuid, datetime, stat
@@ -424,22 +424,66 @@ def user_del(id=None):
     return redirect(url_for('admin.user_list', page=1))
 
 
-@admin.route('/comment/list/')
+@admin.route('/comment/list/<int:page>/', methods=['GET'])
 @admin_login_req
-def comment_list():
+def comment_list(page=None):
     """
     评论列表
     """
-    return render_template('admin/comment_list.html')
+    if page is None:
+        page = 1
+    # 关联Movie和User表
+    data = Comment.query.join(Movie).join(User).filter(
+        Movie.id == Comment.movie_id,
+        User.id == Comment.user_id,
+    ).order_by(
+        Comment.add_time.desc()
+    ).paginate(page=page, per_page=2)
+    return render_template('admin/comment_list.html', data=data)
 
 
-@admin.route('/movie/collist/')
+@admin.route('/comment/del/<int:id>/', methods=['GET'])
 @admin_login_req
-def movie_collist():
+def comment_del(id=None):
+    """
+    删除评论
+    """
+    comment = Comment.query.get_or_404(int(id))
+    db.session.delete(comment)
+    db.session.commit()
+    flash('删除评论成功', 'success')
+    return redirect(url_for('admin.comment_list', page=1))
+
+
+@admin.route('/movie/collist/<int:page>/', methods=['GET'])
+@admin_login_req
+def movie_collist(page=None):
     """
     电影收藏
     """
-    return render_template('admin/movie_collist.html')
+    if page is None:
+        page = 1
+    # 关联Movie和User表
+    data = MovieCollection.query.join(Movie).join(User).filter(
+        Movie.id == MovieCollection.movie_id,
+        User.id == MovieCollection.user_id,
+    ).order_by(
+        MovieCollection.add_time.desc()
+    ).paginate(page=page, per_page=2)
+    return render_template('admin/movie_collist.html', data=data)
+
+
+@admin.route('/movie/collist/del/<int:id>/', methods=['GET'])
+@admin_login_req
+def movie_col_del(id=None):
+    """
+    删除收藏
+    """
+    movie_col = MovieCollection.query.get_or_404(int(id))
+    db.session.delete(movie_col)
+    db.session.commit()
+    flash('删除收藏成功', 'success')
+    return redirect(url_for('admin.movie_collist', page=1))
 
 
 @admin.route('/oplog/list/')

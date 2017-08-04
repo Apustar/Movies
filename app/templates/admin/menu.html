@@ -93,7 +93,7 @@
         </a>
         <ul class="treeview-menu">
             <li id="comment_list">
-                <a href="{{ url_for('admin.comment_list') }}">
+                <a href="{{ url_for('admin.comment_list', page=1) }}">
                     <i class="fa fa-circle-o"></i> 评论列表
                 </a>
             </li>
@@ -107,7 +107,7 @@
         </a>
         <ul class="treeview-menu">
             <li id="movie_collist">
-                <a href="{{ url_for('admin.movie_collist') }}">
+                <a href="{{ url_for('admin.movie_collist', page=1) }}">
                     <i class="fa fa-circle-o"></i> 收藏列表
                 </a>
             </li>
