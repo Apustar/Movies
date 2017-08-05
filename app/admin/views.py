@@ -4,10 +4,21 @@ from functools import wraps
 from werkzeug.utils import secure_filename
 
 from app import db, app
-from app.models import Admin, Tag, Movie, MoviePreview, User, Comment, MovieCollection
+from app.models import Admin, Tag, Movie, MoviePreview, User, Comment, MovieCollection, OperateLog, UserLog, AdminLog
 from .forms import LoginForm, TagForm, MovieForm, MoviePreviewForm, PWDResetForm
 from . import admin
 import os, uuid, datetime, stat
+
+
+@admin.context_processor
+def tpl_extra():
+    """
+    上下文应用处理器，使变量能够被模板访问
+    """
+    data = dict(
+        online_time=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    )
+    return data
 
 
 def admin_login_req(f):
@@ -55,6 +66,15 @@ def login():
             return redirect(url_for('admin.login'))
         # 检测通过，则保存会话
         session['admin'] = data['account']
+        session['admin_id'] = admin.id
+
+        # 记录登陆操作
+        admin_log = AdminLog(
+            admin_id=admin.id,
+            ip=request.remote_addr
+        )
+        db.session.add(admin_log)
+        db.session.commit()
         return redirect(request.args.get('next') or url_for('admin.index'))
     return render_template('admin/login.html', form=form)
 
@@ -66,6 +86,7 @@ def logout():
     后台登出
     """
     session.pop('admin', None)
+    session.pop('admin_id', None)
     return redirect(url_for('admin.login'))
 
 
@@ -109,6 +130,15 @@ def tag_add():
         db.session.add(tag)
         db.session.commit()
         flash('添加标签成功', 'success')
+
+        # 记录该操作
+        oplog = OperateLog(
+            admin_id=session['admin_id'],
+            ip=request.remote_addr,
+            reason='添加标签:{}'.format(data['name'])
+        )
+        db.session.add(oplog)
+        db.session.commit()
         return redirect(url_for('admin.tag_add'))
     return render_template('admin/tag_add.html', form=form)
 
@@ -496,31 +526,55 @@ def movie_col_del(id=None):
     return redirect(url_for('admin.movie_collist', page=1))
 
 
-@admin.route('/oplog/list/')
+@admin.route('/oplog/list/<int:page>/', methods=['GET'])
 @admin_login_req
-def oplog_list():
+def oplog_list(page=None):
     """
-    操作登陆日志列表
+    操作日志列表
     """
-    return render_template('admin/oplog_list.html')
+    if page is None:
+        page = 1
+    # 关联Admin表
+    data = OperateLog.query.join(Admin).filter(
+        OperateLog.admin_id == Admin.id
+    ).order_by(
+        OperateLog.add_time.desc()
+    ).paginate(page=page, per_page=2)
+    return render_template('admin/oplog_list.html', data=data)
 
 
-@admin.route('/adminloginlog/list/')
+@admin.route('/adminloginlog/list/<int:page>/', methods=['GET'])
 @admin_login_req
-def adminloginlog_list():
+def adminloginlog_list(page=None):
     """
     管理员登陆日志列表
     """
-    return render_template('admin/adminloginlog_list.html')
+    if page is None:
+        page = 1
+    # 关联Admin表
+    data = AdminLog.query.join(Admin).filter(
+        AdminLog.admin_id == Admin.id
+    ).order_by(
+        AdminLog.add_time.desc()
+    ).paginate(page=page, per_page=2)
+    return render_template('admin/adminloginlog_list.html', data=data)
 
 
-@admin.route('/userloginlog/list/')
+@admin.route('/userloginlog/list/<int:page>/', methods=['GET'])
 @admin_login_req
-def userloginlog_list():
+def userloginlog_list(page=None):
     """
     用户登陆日志列表
     """
-    return render_template('admin/userloginlog_list.html')
+    if page is None:
+        page = 1
+    # 关联Admin表
+    data = UserLog.query.join(User).filter(
+        UserLog.admin_id == User.id
+    ).order_by(
+        UserLog.add_time.desc()
+    ).paginate(page=page, per_page=2)
+    return render_template('admin/userloginlog_list.html', data=data)
 
 
 @admin.route('/role/add/')
