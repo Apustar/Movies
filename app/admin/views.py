@@ -4,8 +4,9 @@ from functools import wraps
 from werkzeug.utils import secure_filename
 
 from app import db, app
-from app.models import Admin, Tag, Movie, MoviePreview, User, Comment, MovieCollection, OperateLog, UserLog, AdminLog
-from .forms import LoginForm, TagForm, MovieForm, MoviePreviewForm, PWDResetForm
+from app.models import Admin, Tag, Movie, MoviePreview, User, Comment, \
+    MovieCollection, OperateLog, UserLog, AdminLog, Auth
+from .forms import LoginForm, TagForm, MovieForm, MoviePreviewForm, PWDResetForm, AuthForm
 from . import admin
 import os, uuid, datetime, stat
 
@@ -595,22 +596,83 @@ def role_list():
     return render_template('admin/role_list.html')
 
 
-@admin.route('/auth/add/')
+@admin.route('/auth/add/', methods=['GET', 'POST'])
 @admin_login_req
 def auth_add():
     """
     添加权限
     """
-    return render_template('admin/auth_add.html')
+    form = AuthForm()
+    if form.validate_on_submit():
+        data = form.data
+
+        auth_count = Auth.query.filter_by(url=data['url']).count()
+        # 标签是否已经存在
+        if auth_count == 1:
+            flash('该权限已经存在', 'error')
+            return redirect(url_for('admin.auth_add'))
+
+        auth = Auth(
+            name=data['name'],
+            url=data['url']
+        )
+        db.session.add(auth)
+        db.session.commit()
+        flash('权限添加成功', 'success')
+        return redirect(url_for('admin.auth_add'))
+    return render_template('admin/auth_add.html', form=form)
 
 
-@admin.route('/auth/list/')
+@admin.route('/auth/edit/<int:id>/', methods=['GET', 'POST'])
 @admin_login_req
-def auth_list():
+def auth_edit(id=None):
+    """
+    修改权限
+    """
+    form = AuthForm()
+    auth = Auth.query.get_or_404(id)
+    if form.validate_on_submit():
+        data = form.data
+        auth_count = Auth.query.filter_by(url=data['url']).count()
+        # 如果根据名字查到权限对象而且该url不等于正在修改的权限的url，则权限重复
+        if auth_count == 1 and auth.url != data['url']:
+            flash('权限已经存在', 'error')
+            return redirect(url_for('admin.auth_edit', id=id))
+        # 将修改权限更新到数据库
+        auth.name = data['name']
+        auth.url = data['url']
+        db.session.add(auth)
+        db.session.commit()
+        flash('修改权限成功', 'success')
+        return redirect(url_for('admin.auth_edit', id=id))
+    return render_template('admin/auth_edit.html', form=form, auth=auth)
+
+
+@admin.route('/auth/delete/<int:id>/', methods=['GET'])
+@admin_login_req
+def auth_del(id=None):
+    """
+    权限删除
+    """
+    auth = Auth.query.filter_by(id=id).first_or_404()
+    db.session.delete(auth)
+    db.session.commit()
+    flash('删除权限成功', 'success')
+    return redirect(url_for('admin.auth_list', page=1))
+
+
+@admin.route('/auth/list/<int:page>/', methods=['GET'])
+@admin_login_req
+def auth_list(page=None):
     """
      权限列表
      """
-    return render_template('admin/auth_list.html')
+    if page is None:
+        page = 1
+    data = Auth.query.order_by(
+        Auth.add_time.desc()
+    ).paginate(page=page, per_page=5)
+    return render_template('admin/auth_list.html', data=data)
 
 
 @admin.route('/admin/add/')
