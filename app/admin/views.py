@@ -6,7 +6,7 @@ from werkzeug.utils import secure_filename
 from app import db, app
 from app.models import Admin, Tag, Movie, MoviePreview, User, Comment, \
     MovieCollection, OperateLog, UserLog, AdminLog, Auth, Role
-from .forms import LoginForm, TagForm, MovieForm, MoviePreviewForm, PWDResetForm, AuthForm, RoleForm
+from .forms import LoginForm, TagForm, MovieForm, MoviePreviewForm, PWDResetForm, AuthForm, RoleForm, AdminForm
 from . import admin
 import os, uuid, datetime, stat
 
@@ -729,19 +729,41 @@ def auth_list(page=None):
     return render_template('admin/auth_list.html', data=data)
 
 
-@admin.route('/admin/add/')
+@admin.route('/admin/add/', methods=['GET', 'POST'])
 @admin_login_req
 def admin_add():
     """
      添加管理员
      """
-    return render_template('admin/admin_add.html')
+    from werkzeug.security import generate_password_hash
+    form = AdminForm()
+    if form.validate_on_submit():
+        data = form.data
+        admin = Admin(
+            name=data['name'],
+            pwd=generate_password_hash(data['pwd']),
+            role_id=data['role_id'],
+            # 代表普通管理员
+            is_super=1,
+        )
+        db.session.add(admin)
+        db.session.commit()
+        flash('添加管理员成功', 'success')
+        return redirect(url_for('admin.admin_add'))
+    return render_template('admin/admin_add.html', form=form)
 
 
-@admin.route('/admin/list/')
+@admin.route('/admin/list/<int:page>', methods=['GET'])
 @admin_login_req
-def admin_list():
+def admin_list(page=None):
     """
      管理员列表
      """
-    return render_template('admin/admin_list.html')
+    if page is None:
+        page = 1
+    data = Admin.query.join(Role).filter(
+        Admin.role_id == Role.id,
+    ).order_by(
+        Admin.add_time.desc()
+    ).paginate(page=page, per_page=5)
+    return render_template('admin/admin_list.html', data=data)
