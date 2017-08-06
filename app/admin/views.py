@@ -5,8 +5,8 @@ from werkzeug.utils import secure_filename
 
 from app import db, app
 from app.models import Admin, Tag, Movie, MoviePreview, User, Comment, \
-    MovieCollection, OperateLog, UserLog, AdminLog, Auth
-from .forms import LoginForm, TagForm, MovieForm, MoviePreviewForm, PWDResetForm, AuthForm
+    MovieCollection, OperateLog, UserLog, AdminLog, Auth, Role
+from .forms import LoginForm, TagForm, MovieForm, MoviePreviewForm, PWDResetForm, AuthForm, RoleForm
 from . import admin
 import os, uuid, datetime, stat
 
@@ -578,22 +578,76 @@ def userloginlog_list(page=None):
     return render_template('admin/userloginlog_list.html', data=data)
 
 
-@admin.route('/role/add/')
+@admin.route('/role/add/', methods=['GET', 'POST'])
 @admin_login_req
 def role_add():
     """
      添加角色
      """
-    return render_template('admin/role_add.html')
+    form = RoleForm()
+    if form.validate_on_submit():
+        data = form.data
+        role = Role(
+            name=data['name'],
+            # 使用join拼接权限数组,先转化为字符串,因为权限ID是int
+            auths=','.join([str(auth) for auth in data['auths']])
+        )
+        db.session.add(role)
+        db.session.commit()
+        flash('角色添加成功', 'success')
+    return render_template('admin/role_add.html', form=form)
 
 
-@admin.route('/role/list/')
+@admin.route('/role/edit/<int:id>/', methods=['GET', 'POST'])
 @admin_login_req
-def role_list():
+def role_edit(id=None):
+    """
+    修改角色
+    """
+    form = RoleForm()
+    role = Role.query.get_or_404(id)
+
+    # 对权限列表赋予初值,先对数据进行处理，转化成int型的列表
+    if request.method == 'GET':
+        form.auths.data = [int(auth) for auth in role.auths.split(',')]
+
+    if form.validate_on_submit():
+        data = form.data
+        # 将修改权限更新到数据库
+        role.name = data['name']
+        role.auths = ','.join([str(auth) for auth in data['auths']])
+        db.session.add(role)
+        db.session.commit()
+        flash('修改权限成功', 'success')
+        return redirect(url_for('admin.auth_edit', id=id))
+    return render_template('admin/role_edit.html', form=form, role=role)
+
+
+@admin.route('/role/delete/<int:id>/', methods=['GET'])
+@admin_login_req
+def role_del(id=None):
+    """
+    角色删除
+    """
+    role = Role.query.filter_by(id=id).first_or_404()
+    db.session.delete(role)
+    db.session.commit()
+    flash('删除角色成功', 'success')
+    return redirect(url_for('admin.role_list', page=1))
+
+
+@admin.route('/role/list/<int:page>/', methods=['GET'])
+@admin_login_req
+def role_list(page=None):
     """
     角色列表
     """
-    return render_template('admin/role_list.html')
+    if page is None:
+        page = 1
+    data = Role.query.order_by(
+        Role.add_time.desc()
+    ).paginate(page=page, per_page=5)
+    return render_template('admin/role_list.html', data=data)
 
 
 @admin.route('/auth/add/', methods=['GET', 'POST'])

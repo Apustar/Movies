@@ -13,7 +13,7 @@
             <h1>微电影管理系统</h1>
             <ol class="breadcrumb">
                 <li><a href="#"><i class="fa fa-dashboard"></i> 角色管理</a></li>
-                <li class="active">添加角色</li>
+                <li class="active">修改角色</li>
             </ol>
         </section>
         <section class="content" id="showcontent">
@@ -21,11 +21,11 @@
                 <div class="col-md-12">
                     <div class="box box-primary">
                         <div class="box-header with-border">
-                            <h3 class="box-title">添加角色</h3>
+                            <h3 class="box-title">修改角色</h3>
                         </div>
                         <form role="form" method="post">
                             <div class="box-body">
-                            <!--角色添加成功闪现消息-->
+                            <!--角色修改成功闪现消息-->
                             {% for msg in get_flashed_messages(category_filter=["success"]) %}
                             <div class="alert alert-success alert-dismissible">
                                 <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
@@ -33,7 +33,7 @@
                                 {{ msg }}
                             </div>
                             {% endfor %}
-                            <!--角色添加失败闪现消息-->
+                            <!--角色修改失败闪现消息-->
                             {% for msg in get_flashed_messages(category_filter=['error']) %}
                             <div class="alert alert-danger alert-dismissible">
                                 <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
@@ -43,7 +43,7 @@
                             {% endfor %}
                                 <div class="form-group">
                                     <label for="input_name">{{ form.name.label }}</label>
-                                    {{ form.name }}
+                                    {{ form.name(value=role.name) }}
                                     {% for err in form.name.errors %}
                                     <div class="col-md-12">
                                         <font style="color: red">{{ err }}</font>
@@ -55,11 +55,6 @@
                                         <label>{{ form.auths.label }}</label>
                                     </div>
                                     {{ form.auths }}
-                                    {% for err in form.auths.errors %}
-                                    <div class="col-md-12">
-                                        <font style="color: red">{{ err }}</font>
-                                    </div>
-                                    {% endfor %}
                                 </div>
                             </div>
                             <div class="box-footer">
