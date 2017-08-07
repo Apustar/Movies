@@ -1,5 +1,9 @@
 # coding:utf8
-from flask import render_template, url_for, redirect, flash, session, request
+"""
+访问权限仅针对电影和标签的管理做限制
+操作日志记录也仅针对标签的相关操作做了记录
+"""
+from flask import render_template, url_for, redirect, flash, session, request, abort
 from functools import wraps
 from werkzeug.utils import secure_filename
 
@@ -17,6 +21,7 @@ def tpl_extra():
     上下文应用处理器，使变量能够被模板访问
     """
     data = dict(
+        # 当前时间
         online_time=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     )
     return data
@@ -24,10 +29,11 @@ def tpl_extra():
 
 def admin_login_req(f):
     """
-    登陆访问控制
+    登陆访问装饰器
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        #  未登陆的话重定向到登陆页面
         if 'admin' not in session:
             print(url_for('admin.login', next=request.url))
             return redirect(url_for('admin.login', next=request.url))
@@ -35,7 +41,39 @@ def admin_login_req(f):
     return decorated_function
 
 
+def admin_auth(f):
+    """
+    权限控制装饰器
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # 关联角色查询管理员
+        admin = Admin.query.join(Role).filter(
+            Role.id == Admin.role_id,
+            Admin.id == session['admin_id']
+        ).first()
+        # 管理员所属角色的权限ID字符串，格式('1,2,3')
+        auths = admin.role.auths
+        # 将权限ID字符串转化成int类型的列表，[1, 2, 3]
+        auths = [int(auth) for auth in auths.split(',')]
+        # 所有的权限对象
+        all_auth = Auth.query.all()
+        # 根据auths找出所有的权限对象的url组成列表
+        urls = [v.url for v in all_auth for val in auths if val == v.id]
+        # 当前访问页面url
+        rule = str(request.url_rule)
+        # 如果当前访问页面url不再该管理员所属角色的权限里，则禁止访问
+        if rule not in urls:
+            abort(404)
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
 def change_filename(filename):
+    """
+    生成一个唯一的文件名
+    """
     # 将文件名和后缀分离
     file_info = os.path.splitext(filename)
     # 文件名为：添加时间+uuid生成的唯一字符串+文件后缀
@@ -45,6 +83,7 @@ def change_filename(filename):
 
 @admin.route('/')
 @admin_login_req
+@admin_auth
 def index():
     """
     后台首页
@@ -65,7 +104,7 @@ def login():
             # 错误消息闪现
             flash('密码错误', 'error')
             return redirect(url_for('admin.login'))
-        # 检测通过，则保存会话
+        # 检测通过，则在session中保存admin的名称和ID
         session['admin'] = data['account']
         session['admin_id'] = admin.id
 
@@ -112,6 +151,7 @@ def pwd_reset():
 
 @admin.route('/tag/add/', methods=['GET', 'POST'])
 @admin_login_req
+@admin_auth
 def tag_add():
     """
     添加标签
@@ -119,9 +159,9 @@ def tag_add():
     form = TagForm()
     if form.validate_on_submit():
         data = form.data
-        tag = Tag.query.filter_by(name=data['name']).count()
+        tag_count = Tag.query.filter_by(name=data['name']).count()
         # 标签是否已经存在
-        if tag == 1:
+        if tag_count == 1:
             flash('名称已经存在', 'error')
             return redirect(url_for('admin.tag_add'))
         # 将新标签加入数据库
@@ -146,6 +186,7 @@ def tag_add():
 
 @admin.route('/tag/edit/<int:id>/', methods=['GET', 'POST'])
 @admin_login_req
+@admin_auth
 def tag_edit(id=None):
     """
     修改标签
@@ -170,6 +211,7 @@ def tag_edit(id=None):
 
 @admin.route('/tag/delete/<int:id>/', methods=['GET'])
 @admin_login_req
+@admin_auth
 def tag_del(id=None):
     """
     标签删除
@@ -183,6 +225,7 @@ def tag_del(id=None):
 
 @admin.route('/tag/list/<int:page>/', methods=['GET'])
 @admin_login_req
+@admin_auth
 def tag_list(page=None):
     """
     标签列表
@@ -197,6 +240,7 @@ def tag_list(page=None):
 
 @admin.route('/movie/add/', methods=['GET', 'POST'])
 @admin_login_req
+@admin_auth
 def movie_add():
     """
     添加电影
@@ -245,6 +289,7 @@ def movie_add():
 
 @admin.route('/movie/list/<int:page>/', methods=['GET'])
 @admin_login_req
+@admin_auth
 def movie_list(page=None):
     """
     电影列表
@@ -262,6 +307,7 @@ def movie_list(page=None):
 
 @admin.route('/movie/edit/<int:id>/', methods=['GET', 'POST'])
 @admin_login_req
+@admin_auth
 def movie_edit(id=None):
     """
     编辑电影
@@ -319,6 +365,7 @@ def movie_edit(id=None):
 
 @admin.route('/movie/del/<int:id>/', methods=['GET'])
 @admin_login_req
+@admin_auth
 def movie_del(id=None):
     """
     删除电影
@@ -571,9 +618,9 @@ def userloginlog_list(page=None):
         page = 1
     # 关联Admin表
     data = UserLog.query.join(User).filter(
-        UserLog.admin_id == User.id
+        UserLog.user_id == User.id
     ).order_by(
-        UserLog.add_time.desc()
+        UserLog.login_time.desc()
     ).paginate(page=page, per_page=2)
     return render_template('admin/userloginlog_list.html', data=data)
 
@@ -585,6 +632,7 @@ def role_add():
      添加角色
      """
     form = RoleForm()
+    form.auths.choices = [(v.id, v.name) for v in Auth.query.all()]
     if form.validate_on_submit():
         data = form.data
         role = Role(
@@ -605,6 +653,7 @@ def role_edit(id=None):
     修改角色
     """
     form = RoleForm()
+    form.auths.choices = [(v.id, v.name) for v in Auth.query.all()]
     role = Role.query.get_or_404(id)
 
     # 对权限列表赋予初值,先对数据进行处理，转化成int型的列表
@@ -619,7 +668,7 @@ def role_edit(id=None):
         db.session.add(role)
         db.session.commit()
         flash('修改权限成功', 'success')
-        return redirect(url_for('admin.auth_edit', id=id))
+        return redirect(url_for('admin.role_edit', id=id))
     return render_template('admin/role_edit.html', form=form, role=role)
 
 
@@ -737,6 +786,7 @@ def admin_add():
      """
     from werkzeug.security import generate_password_hash
     form = AdminForm()
+    form.role_id.choices = [(v.id, v.name) for v in Role.query.all()]
     if form.validate_on_submit():
         data = form.data
         admin = Admin(
@@ -761,6 +811,7 @@ def admin_list(page=None):
      """
     if page is None:
         page = 1
+    # 关联Role表
     data = Admin.query.join(Role).filter(
         Admin.role_id == Role.id,
     ).order_by(
