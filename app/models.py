@@ -25,6 +25,10 @@ class User(db.Model):
     def __repr__(self):
         return '<User {}>'.format(self.name)
 
+    def check_pwd(self, pwd):
+        from werkzeug.security import check_password_hash
+        return check_password_hash(self.pwd, pwd)
+
 
 class UserLog(db.Model):
     """
