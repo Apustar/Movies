@@ -326,6 +326,7 @@ def movie_edit(id=None):
 
     if form.validate_on_submit():
         data = form.data
+        print(form.logo.data)
 
         # 片名不能重复
         movie_count = Movie.query.filter_by(title=data['title']).count()
@@ -421,6 +422,8 @@ def movie_pre_edit(id=None):
 
     if form.validate_on_submit():
         data = form.data
+
+        print(form.logo.data)
 
         # 片名不能重复
         movie_pre_count = MoviePreview.query.filter_by(title=data['title']).count()
@@ -616,12 +619,13 @@ def userloginlog_list(page=None):
     """
     if page is None:
         page = 1
-    # 关联Admin表
+    # 关联User表
     data = UserLog.query.join(User).filter(
         UserLog.user_id == User.id
     ).order_by(
         UserLog.login_time.desc()
     ).paginate(page=page, per_page=2)
+    print(list(data.iter_pages()))
     return render_template('admin/userloginlog_list.html', data=data)
 
 

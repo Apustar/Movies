@@ -2,12 +2,27 @@
 from flask import render_template, redirect, url_for, flash, session, request
 from werkzeug.security import generate_password_hash
 from functools import wraps
+from werkzeug.utils import secure_filename
 import uuid
+import os
+import datetime
+import stat
 
 from . import home
-from .forms import RegisterForm, LoginForm
+from .forms import RegisterForm, LoginForm, UserDetailForm, PWDResetForm
 from app.models import User, UserLog
-from app import db
+from app import db, app
+
+
+def change_filename(filename):
+    """
+    生成一个唯一的文件名
+    """
+    # 将文件名和后缀分离
+    file_info = os.path.splitext(filename)
+    # 文件名为：添加时间+uuid生成的唯一字符串+文件后缀
+    filename = datetime.datetime.now().strftime('%Y%m%d%H%M%S') + str(uuid.uuid4().hex) + file_info[1]
+    return filename
 
 
 def user_login_req(f):
@@ -90,22 +105,66 @@ def register():
     return render_template('home/register.html', form=form)
 
 
-@home.route('/user_center/')
+@home.route('/user_center/', methods=['GET', 'POST'])
 @user_login_req
 def user_center():
     """"
     用户中心
     """
-    return render_template('home/user_center.html')
+    form = UserDetailForm()
+    form.image.validators = []
+    user = User.query.get(int(session['user_id']))
+
+    if request.method == 'GET':
+        form.name.data = user.name
+        print(form.name.data)
+        form.email.data = user.email
+        form.phone.data = user.phone
+        form.info.data = user.info
+
+    if form.validate_on_submit():
+        data = form.data
+        print(form.image.data)
+        # 保存头像
+        file_image = secure_filename(form.image.data.filename)
+        if not os.path.exists(app.config['USER_IMAGE_DIR']):
+            os.makedirs(app.config['USER_IMAGE_DIR'])
+            os.chmod(app.config['USER_IMAGE_DIR'], stat.S_IRWXU)
+        user.image = change_filename(file_image)
+        form.image.data.save(app.config['USER_IMAGE_DIR'] + user.image)
+
+        # 剩余信息录入
+        user.name = data['name']
+        user.email = data['email']
+        user.phone = data['phone']
+        user.info = data['info']
+        db.session.add(user)
+        db.session.commit()
+        flash('修改成功', 'success')
+        return redirect(url_for('home.user_center'))
+    return render_template('home/user_center.html', form=form, user=user)
 
 
-@home.route('/pwd_reset/')
+@home.route('/pwd_reset/', methods=['GET', 'POST'])
 @user_login_req
 def pwd_reset():
     """"
     密码重置
     """
-    return render_template('home/pwd_reset.html')
+    form = PWDResetForm()
+    if form.validate_on_submit():
+        data = form.data
+        user = User.query.filter_by(name=session['user']).first()
+
+        if not user.check_pwd(data['old_pwd']):
+            flash('旧密码错误', 'error')
+            return redirect(url_for('home.pwd_reset'))
+        user.pwd = generate_password_hash(data['new_pwd'])
+        db.session.add(user)
+        db.session.commit()
+        flash('修改密码成功，请重新登陆', 'success')
+        return redirect(url_for('home.logout'))
+    return render_template('home/pwd_reset.html', form=form)
 
 
 @home.route('/my_comment/')
@@ -117,13 +176,21 @@ def my_comment():
     return render_template('home/my_comment.html')
 
 
-@home.route('/login_log/')
+@home.route('/login_log/<int:page>/', methods=['GET'])
 @user_login_req
-def login_log():
+def login_log(page=None):
     """"
     我的登录日志
     """
-    return render_template('home/login_log.html')
+    if page is None:
+        page = 1
+    # 关联User表
+    data = UserLog.query.filter_by(
+        user_id=int(session['user_id'])
+    ).order_by(
+        UserLog.login_time.desc()
+    ).paginate(page=page, per_page=2)
+    return render_template('home/login_log.html', data=data)
 
 
 @home.route('/movie_fav/')

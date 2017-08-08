@@ -1,4 +1,5 @@
 {% extends 'home/home.html' %}
+{% import 'ui/admin_page.html' as pg %}
 
 {% block css %}
     <style>
@@ -22,40 +23,19 @@
                         <td style="width:10%">编号</td>
                         <td style="width:30%">登录时间</td>
                         <td style="width:30%">登录IP</td>
-                        <td style="width:30%">登录地址</td>
                     </tr>
+                    {% for item in data.items %}
                     <tr>
-                        <td>1</td>
-                        <td>2017-01-01 12:00:00</td>
-                        <td>192.168.4.1</td>
-                        <td>云南昆明</td>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ item.login_time }}</td>
+                        <td>{{ item.login_ip }}</td>
                     </tr>
-                    <tr>
-                        <td>1</td>
-                        <td>2017-01-01 12:00:00</td>
-                        <td>192.168.4.1</td>
-                        <td>云南昆明</td>
-                    </tr>
-                    <tr>
-                        <td>1</td>
-                        <td>2017-01-01 12:00:00</td>
-                        <td>192.168.4.1</td>
-                        <td>云南昆明</td>
-                    </tr>
-                    <tr>
-                        <td>1</td>
-                        <td>2017-01-01 12:00:00</td>
-                        <td>192.168.4.1</td>
-                        <td>云南昆明</td>
-                    </tr>
-                    <tr>
-                        <td>1</td>
-                        <td>2017-01-01 12:00:00</td>
-                        <td>192.168.4.1</td>
-                        <td>云南昆明</td>
-                    </tr>
+                    {% endfor %}
 
                 </table>
+            </div>
+            <div class="box-footer clearfix">
+                {{ pg.page(data, 'home.login_log') }}
             </div>
         </div>
     </div>
