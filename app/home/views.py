@@ -10,7 +10,7 @@ import stat
 
 from . import home
 from .forms import RegisterForm, LoginForm, UserDetailForm, PWDResetForm
-from app.models import User, UserLog
+from app.models import User, UserLog, MoviePreview, Tag, Movie
 from app import db, app
 
 
@@ -38,12 +38,56 @@ def user_login_req(f):
     return decorated_function
 
 
-@home.route('/')
-def index():
+@home.route('/<int:page>/', methods=['GET'])
+def index(page=None):
     """"
     首页
     """
-    return render_template('home/index.html')
+    tags = Tag.query.all()
+    tag_id = request.args.get('tag_id', 0)
+    star = request.args.get('star', 0)
+    time = request.args.get('time', 0)
+    pm = request.args.get('pm', 0)
+    cm = request.args.get('cm', 0)
+
+    data = Movie.query
+    if int(tag_id) != 0:
+        # 按照tag筛选
+        data = data.filter_by(tag_id=tag_id)
+
+    if int(star) != 0:
+        # 按照星级筛选
+        data = data.filter_by(star=int(star))
+
+    if int(time) != 0:
+        if int(time) == 1:  # 时间早到晚
+            data = data.order_by(Movie.add_time.desc())
+        if int(time) == 2:  # 时间晚到早
+            data = data.order_by(Movie.add_time.asc())
+
+    if int(pm) != 0:
+        if int(pm) == 1:  # 播放量高到低
+            data = data.order_by(Movie.play_num.desc())
+        if int(pm) == 2:  # 播放量低到高
+            data = data.order_by(Movie.play_num.asc())
+
+    if int(cm) != 0:
+        if int(cm) == 1:  # 评论量高到低
+            data = data.order_by(Movie.comment_num.desc())
+        if int(cm) == 2:  # 评论量低到高
+            data = data.order_by(Movie.comment_num.asc())
+
+    if page is None:
+        page = 1
+    data = data.paginate(page=page, per_page=4)
+    p = dict(
+        tag_id=tag_id,
+        star=star,
+        time=time,
+        pm=pm,
+        cm=cm
+    )
+    return render_template('home/index.html', tags=tags, p=p, data=data)
 
 
 @home.route('/login/', methods=['GET', 'POST'])
@@ -207,7 +251,8 @@ def animation():
     """"
     首页动画
     """
-    return render_template('home/animation.html')
+    data = MoviePreview.query.all()
+    return render_template('home/animation.html', data=data)
 
 
 @home.route('/search/')
