@@ -227,3 +227,25 @@ class PWDResetForm(FlaskForm):
             'class': 'btn btn-primary',
         }
     )
+
+
+class CommentForm(FlaskForm):
+    content = TextAreaField(
+        label='评论',
+        validators=[
+            DataRequired('请输入评论')
+        ],
+        description='内容',
+        render_kw={
+            'id': 'input_content'
+        }
+
+    )
+
+    submit = SubmitField(
+        '提交评论',
+        render_kw={
+            'class': "btn btn-success",
+            'id': "btn-sub"
+        }
+    )

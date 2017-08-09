@@ -9,8 +9,8 @@ import datetime
 import stat
 
 from . import home
-from .forms import RegisterForm, LoginForm, UserDetailForm, PWDResetForm
-from app.models import User, UserLog, MoviePreview, Tag, Movie
+from .forms import RegisterForm, LoginForm, UserDetailForm, PWDResetForm, CommentForm
+from app.models import User, UserLog, MoviePreview, Tag, Movie, Comment
 from app import db, app
 
 
@@ -211,13 +211,19 @@ def pwd_reset():
     return render_template('home/pwd_reset.html', form=form)
 
 
-@home.route('/my_comment/')
+@home.route('/my_comment/<int:page>/')
 @user_login_req
-def my_comment():
+def my_comment(page=None):
     """"
     我的评论
     """
-    return render_template('home/my_comment.html')
+    if page is None:
+        page = 1
+    data = Comment.query.join(Movie).filter(
+        Comment.movie_id == Movie.id,
+        Comment.user_id == session['user_id']
+    ).order_by(Comment.add_time.desc()).paginate(page=page, per_page=3)
+    return render_template('home/my_comment.html', data=data)
 
 
 @home.route('/login_log/<int:page>/', methods=['GET'])
@@ -274,16 +280,55 @@ def search(page=None):
     return render_template('home/search.html', key=key, data=data, movie_count=movie_count)
 
 
-@home.route('/play/<int:id>/', methods=['GET'])
-def play(id=None):
+@home.route('/play/<int:id>/<int:page>/', methods=['GET', 'POST'])
+def play(id=None, page=None):
     """"
     播放
     """
+    form = CommentForm()
+
+    # 电影实体
     movie = Movie.query.join(Tag).filter(
         Tag.id == Movie.tag_id,
         Movie.id == int(id)
     ).first_or_404()
-    return render_template('home/play.html', movie=movie)
+
+    # 电影评论
+    if page is None:
+        page = 1
+    # 关联Movie和User表
+    data = Comment.query.join(Movie).join(User).filter(
+        Movie.id == movie.id,
+        User.id == Comment.user_id,
+    ).order_by(
+        Comment.add_time.desc()
+    ).paginate(page=page, per_page=4)
+
+    # 点进来播放量+1
+    movie.play_num += 1
+
+    # 评论提交
+    if 'user' in session and form.validate_on_submit():
+        data = form.data
+        comment = Comment(
+            content=data['content'],
+            movie_id=int(id),
+            user_id=session['user_id']
+        )
+
+        db.session.add(comment)
+        db.session.commit()
+        # 评论提交成功评论量+1
+        movie.comment_num += 1
+        db.session.add(movie)
+        db.session.commit()
+        flash('添加评论成功', 'success')
+        return redirect(url_for('home.play', id=movie.id, page=1))
+
+    db.session.add(movie)
+    db.session.commit()
+
+    return render_template('home/play.html', movie=movie, form=form, data=data)
 
 
 
