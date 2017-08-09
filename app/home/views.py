@@ -7,10 +7,11 @@ import uuid
 import os
 import datetime
 import stat
+import json
 
 from . import home
 from .forms import RegisterForm, LoginForm, UserDetailForm, PWDResetForm, CommentForm
-from app.models import User, UserLog, MoviePreview, Tag, Movie, Comment
+from app.models import User, UserLog, MoviePreview, Tag, Movie, Comment, MovieCollection
 from app import db, app
 
 
@@ -159,9 +160,9 @@ def user_center():
     form.image.validators = []
     user = User.query.get(int(session['user_id']))
 
+    # 赋值
     if request.method == 'GET':
         form.name.data = user.name
-        print(form.name.data)
         form.email.data = user.email
         form.phone.data = user.phone
         form.info.data = user.info
@@ -243,13 +244,51 @@ def login_log(page=None):
     return render_template('home/login_log.html', data=data)
 
 
-@home.route('/movie_fav/')
+@home.route('/movie_fav/add/', methods=['GET', 'POST'])
 @user_login_req
 def movie_fav():
     """"
-    我收藏的电影
+    收藏电影
     """
-    return render_template('home/movie_fav.html')
+    user_id = request.args.get('user_id', '')
+    movie_id = request.args.get('movie_id', '')
+    movie_col_count = MovieCollection.query.filter_by(
+        user_id=int(user_id),
+        movie_id=int(movie_id)
+    ).count()
+
+    if movie_col_count == 1:  # 已收藏，进行取消收藏操作
+        movie_col = MovieCollection.query.filter_by(
+            user_id=int(user_id),
+            movie_id=int(movie_id)
+        ).first_or_404()
+        db.session.delete(movie_col)
+        db.session.commit()
+        data = dict(ok=0)
+
+    if movie_col_count == 0:  # 未收藏, 进行收藏操作
+        movie_col = MovieCollection(
+            user_id=int(user_id),
+            movie_id=int(movie_id)
+        )
+        db.session.add(movie_col)
+        db.session.commit()
+        data = dict(ok=1)
+    return json.dumps(data)
+
+
+@home.route('/movie_col_list/<int:page>/', methods=['GET'])
+@user_login_req
+def movie_col_list(page=None):
+    if page is None:
+        page = 1
+
+    data = MovieCollection.query.join(Movie).join(User).filter(
+        User.id == session['user_id'],
+        Movie.id == MovieCollection.movie_id
+    ).order_by(MovieCollection.add_time.desc()).paginate(page=page, per_page=4)
+
+    return render_template('home/movie_col_list.html', data=data)
 
 
 @home.route('/animation/')
@@ -285,6 +324,20 @@ def play(id=None, page=None):
     """"
     播放
     """
+    # 电影是否被收藏标志
+    has_fav = False
+
+    count = MovieCollection.query.filter_by(
+        user_id=session['user_id'],
+        movie_id=int(id)
+    ).count()
+
+    # 判断该电影时候已被收藏
+    if count == 0:
+        has_fav = False
+    else:
+        has_fav = True
+
     form = CommentForm()
 
     # 电影实体
@@ -328,7 +381,7 @@ def play(id=None, page=None):
     db.session.add(movie)
     db.session.commit()
 
-    return render_template('home/play.html', movie=movie, form=form, data=data)
+    return render_template('home/play.html', movie=movie, form=form, data=data, has_fav=has_fav)
 
 
 

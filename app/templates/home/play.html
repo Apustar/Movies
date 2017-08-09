@@ -135,7 +135,11 @@
                         </div>
                          {{ form.csrf_token }}
                         &nbsp;{{ form.submit }}
-                        <a class="btn btn-danger" id="btn-col"><span class="glyphicon glyphicon-heart"></span>&nbsp;收藏电影</a>
+                        {% if has_fav == False %}
+                            <a class="btn btn-danger" id="btn-col"><span class="glyphicon glyphicon-heart"></span>&nbsp;收藏</a>
+                        {% else %}
+                            <a class="btn btn-danger" id="btn-col"><span class="glyphicon glyphicon-heart"></span>&nbsp;取消收藏</a>
+                        {% endif %}
                     </form>
                     {% endif %}
                     <ul class="commentList">
@@ -209,5 +213,30 @@ var ue = UE.getEditor('input_content',{
 		height: 500,
 		width: 774,
 	});
+</script>
+
+<script>
+    $(document).ready(function () {
+       $('#btn-col').click(function () {
+           var movie_id = {{ movie.id }}
+           var user_id = {{ session['user_id'] }}
+           $.ajax({
+               url:'{{ url_for('home.movie_fav') }}',
+               type:'GET',
+               data:'movie_id='+movie_id+'&user_id='+user_id,
+               dataType:'json',
+               success:function (res) {
+                    if(res.ok==1){
+                        <!--收藏成功后显示取消收藏-->
+                        $('#btn-col').html('取消收藏')
+                    }
+                    if(res.ok==0){
+                        <!--取消收藏成功后显示收藏-->
+                        $('#btn-col').html('收藏')
+                    }
+               }
+           })
+       });
+    });
 </script>
 {% endblock %}
