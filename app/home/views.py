@@ -79,7 +79,7 @@ def index(page=None):
 
     if page is None:
         page = 1
-    data = data.paginate(page=page, per_page=4)
+    data = data.paginate(page=page, per_page=8)
     p = dict(
         tag_id=tag_id,
         star=star,
@@ -255,20 +255,35 @@ def animation():
     return render_template('home/animation.html', data=data)
 
 
-@home.route('/search/')
-def search():
+@home.route('/search/<int:page>/', methods=['GET'])
+def search(page=None):
     """"
     搜索
     """
-    return render_template('home/search.html')
+    key = request.args.get('key', '')
+
+    movie_count = Movie.query.filter(
+        Movie.title.ilike('%' + key + '%')
+    ).count()
+
+    data = Movie.query.filter(
+        Movie.title.ilike('%' + key + '%')
+    ).order_by(
+        Movie.add_time.desc()
+    ).paginate(page=page, per_page=4)
+    return render_template('home/search.html', key=key, data=data, movie_count=movie_count)
 
 
-@home.route('/play/')
-def play():
+@home.route('/play/<int:id>/', methods=['GET'])
+def play(id=None):
     """"
     播放
     """
-    return render_template('home/play.html')
+    movie = Movie.query.join(Tag).filter(
+        Tag.id == Movie.tag_id,
+        Movie.id == int(id)
+    ).first_or_404()
+    return render_template('home/play.html', movie=movie)
 
 
 
