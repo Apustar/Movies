@@ -280,6 +280,9 @@ def movie_fav():
 @home.route('/movie_col_list/<int:page>/', methods=['GET'])
 @user_login_req
 def movie_col_list(page=None):
+    """
+    我收藏的电影
+    """
     if page is None:
         page = 1
 
@@ -307,6 +310,7 @@ def search(page=None):
     """
     key = request.args.get('key', '')
 
+    # 搜索到的电影数
     movie_count = Movie.query.filter(
         Movie.title.ilike('%' + key + '%')
     ).count()
@@ -327,16 +331,17 @@ def play(id=None, page=None):
     # 电影是否被收藏标志
     has_fav = False
 
-    count = MovieCollection.query.filter_by(
-        user_id=session['user_id'],
-        movie_id=int(id)
-    ).count()
+    if 'user' in session:
+        count = MovieCollection.query.filter_by(
+            user_id=session['user_id'],
+            movie_id=int(id)
+        ).count()
 
-    # 判断该电影时候已被收藏
-    if count == 0:
-        has_fav = False
-    else:
-        has_fav = True
+        # 判断该电影时候已被收藏
+        if count == 0:
+            has_fav = False
+        else:
+            has_fav = True
 
     form = CommentForm()
 
@@ -382,6 +387,5 @@ def play(id=None, page=None):
     db.session.commit()
 
     return render_template('home/play.html', movie=movie, form=form, data=data, has_fav=has_fav)
-
 
 
