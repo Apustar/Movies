@@ -1,5 +1,5 @@
 # coding:utf8
-from flask import render_template, redirect, url_for, flash, session, request
+from flask import render_template, redirect, url_for, flash, session, request, Response
 from werkzeug.security import generate_password_hash
 from functools import wraps
 from werkzeug.utils import secure_filename
@@ -12,7 +12,7 @@ import json
 from . import home
 from .forms import RegisterForm, LoginForm, UserDetailForm, PWDResetForm, CommentForm
 from app.models import User, UserLog, MoviePreview, Tag, Movie, Comment, MovieCollection
-from app import db, app
+from app import db, app, redis
 
 
 def change_filename(filename):
@@ -389,3 +389,111 @@ def play(id=None, page=None):
     return render_template('home/play.html', movie=movie, form=form, data=data, has_fav=has_fav)
 
 
+@home.route('/dmplay/<int:id>/<int:page>/', methods=['GET', 'POST'])
+def dmplay(id=None, page=None):
+    """"
+    播放(带弹幕)
+    """
+    # 电影是否被收藏标志
+    has_fav = False
+
+    if 'user' in session:
+        count = MovieCollection.query.filter_by(
+            user_id=session['user_id'],
+            movie_id=int(id)
+        ).count()
+
+        # 判断该电影时候已被收藏
+        if count == 0:
+            has_fav = False
+        else:
+            has_fav = True
+
+    form = CommentForm()
+
+    # 电影实体
+    movie = Movie.query.join(Tag).filter(
+        Tag.id == Movie.tag_id,
+        Movie.id == int(id)
+    ).first_or_404()
+
+    # 电影评论
+    if page is None:
+        page = 1
+    # 关联Movie和User表
+    data = Comment.query.join(Movie).join(User).filter(
+        Movie.id == movie.id,
+        User.id == Comment.user_id,
+    ).order_by(
+        Comment.add_time.desc()
+    ).paginate(page=page, per_page=4)
+
+    # 点进来播放量+1
+    movie.play_num += 1
+
+    # 评论提交
+    if 'user' in session and form.validate_on_submit():
+        data = form.data
+        comment = Comment(
+            content=data['content'],
+            movie_id=int(id),
+            user_id=session['user_id']
+        )
+
+        db.session.add(comment)
+        db.session.commit()
+        # 评论提交成功评论量+1
+        movie.comment_num += 1
+        db.session.add(movie)
+        db.session.commit()
+        flash('添加评论成功', 'success')
+        return redirect(url_for('home.dmplay', id=movie.id, page=1))
+
+    db.session.add(movie)
+    db.session.commit()
+
+    return render_template('home/dm_play.html', movie=movie, form=form, data=data, has_fav=has_fav)
+
+
+@home.route("/dm/", methods=["GET", "POST"])
+def dm():
+    if request.method == "GET":
+        #获取弹幕消息队列
+        id = request.args.get('id')
+        key = "movie" + str(id)
+        if redis.llen(key):
+            msgs = redis.lrange(key, 0, 2999)
+            res = {
+                "code": 1,
+                "danmaku": [json.loads(v.decode('utf-8')) for v in msgs]
+            }
+        else:
+            res = {
+                "code": 1,
+                "danmaku": []
+            }
+        resp = json.dumps(res)
+    if request.method == "POST":
+        #添加弹幕
+        print(type(request.get_data().decode('utf-8')))
+        data = json.loads(request.get_data().decode('utf-8'))
+        msg = {
+            "__v": 0,
+            "author": data["author"],
+            "time": data["time"],
+            "text": data["text"],
+            "color": data["color"],
+            "type": data['type'],
+            "ip": request.remote_addr,
+            "_id": datetime.datetime.now().strftime("%Y%m%d%H%M%S") + uuid.uuid4().hex,
+            "player": [
+                data["player"]
+            ]
+        }
+        res = {
+            "code": 1,
+            "data": msg
+        }
+        resp = json.dumps(res)
+        redis.lpush("movie" + str(data["player"]), json.dumps(msg))
+    return Response(resp, mimetype='application/json')

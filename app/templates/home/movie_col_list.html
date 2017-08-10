@@ -22,7 +22,7 @@
                     {% for item in data.items %}
                     <div class="media">
                         <div class="media-left">
-                            <a href="{{ url_for('home.play', id=item.movie_id, page=1) }}">
+                            <a href="{{ url_for('home.dmplay', id=item.movie_id, page=1) }}">
                                 <img style="width: 400px;height: 300px;" class="media-object" src="{{ url_for('static', filename='uploads/'+item.movie.logo) }}" alt="{{ item.movie.title }}">
                             </a>
                         </div>

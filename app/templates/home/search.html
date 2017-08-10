@@ -17,7 +17,7 @@
                     </a>
                 </div>
                 <div class="media-body">
-                    <h4 class="media-heading">{{ item.title }}<a href="{{ url_for('home.play', id=item.id, page=1) }}" class="label label-primary pull-right"><span class="glyphicon glyphicon-play"></span>播放影片</a></h4>
+                    <h4 class="media-heading">{{ item.title }}<a href="{{ url_for('home.dmplay', id=item.id, page=1) }}" class="label label-primary pull-right"><span class="glyphicon glyphicon-play"></span>播放影片</a></h4>
                     {{ item.info }}
                 </div>
             </div>
