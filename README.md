@@ -1,4 +1,4 @@
-# Movies
+# WEIMovies
 基于Flask的微电影网站
 # 运行环境
 
